@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - SimpleStock</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --cor-fundo: #f4f7fa; --cor-texto: #333; --cor-primaria: #0d6efd; --cor-sucesso: #198754; --cor-erro: #dc3545; --cor-aviso: #ffc107; --cor-menu-fundo: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%); --cor-menu-texto: #ecf0f1; --cor-menu-hover: #34495e; --cor-menu-ativo: #0d6efd; --cor-sair: #e74c3c; --cor-card: #fff; --cor-sombra: rgba(0,0,0,0.05); --cor-borda: #dee2e6; --cor-texto-secundario: #6c757d; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: var(--cor-fundo); display: flex; }
+        .sidebar { width: 260px; height: 100vh; background: var(--cor-menu-fundo); color: var(--cor-menu-texto); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; padding: 20px 0; z-index: 100;}
+        .sidebar-header { padding: 0 25px 30px; font-size: 1.8em; font-weight: 700; text-align: center; }
+        .sidebar-nav { list-style: none; padding: 0; margin: 0; flex-grow: 1; }
+        .nav-item a { display: flex; align-items: center; padding: 15px 25px; color: var(--cor-menu-texto); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; transition: all 0.2s; }
+        .nav-item a:hover { background-color: var(--cor-menu-hover); }
+        .nav-item.active a { background-color: var(--cor-menu-hover); border-left-color: var(--cor-menu-ativo); color: #fff; font-weight: 700; }
+        .nav-item .material-icons-outlined { margin-right: 15px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 50px; font-size: 0.95em; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-primario { background-color: var(--cor-primaria); color: white; }
+        .btn-sucesso { background-color: var(--cor-sucesso); color: white; }
+        .btn-erro { background-color: var(--cor-erro); color: white; }
+        .btn-editar { background-color: var(--cor-aviso); color: #333; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .btn:disabled { background-color: #a9c9f7; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-sair { width: 100%; padding: 15px; border-radius: 8px; background-color: var(--cor-sair); color: white; cursor: pointer; transition: background-color 0.2s; text-transform: none; letter-spacing: normal; }
+        .main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
+        .card { background-color: var(--cor-card); padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px var(--cor-sombra); border: 1px solid var(--cor-borda); margin-bottom: 30px; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .header-tela { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
+        .header-tela h1 { margin: 0; }
+        .grid-setores { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 25px; }
+        .card-setor { text-align: center; padding: 25px; border: 1px solid var(--cor-borda); border-radius: 8px; background: #fff; position: relative; transition: all 0.3s; }
+        .header-tela div { display: flex; gap: 10px; }
+        .card-setor:hover { transform: translateY(-5px); box-shadow: 0 8px 20px var(--cor-sombra); }
+        .card-setor .icone-setor { font-size: 48px; color: var(--cor-primaria); }
+        .card-setor h3 { margin: 15px 0; }
+        .btn-excluir-setor { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--cor-texto-secundario); cursor: pointer; padding: 5px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .btn-excluir-setor:hover { background-color: #f1f1f1; color: var(--cor-erro); }
+        .tabela-produtos { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .tabela-produtos th, .tabela-produtos td { text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
+        .tabela-produtos img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; margin-right: 10px; }
+        .tabela-produtos .acoes { display: flex; gap: 10px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; animation: fadeInModal 0.3s; }
+        @keyframes fadeInModal { from { opacity: 0 } to { opacity: 1 } }
+        .modal-conteudo { background-color: #fff; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--cor-borda); border-radius: 6px; box-sizing: border-box; font-size: 1em; }
+    </style>
+    <style>
+        /* Adicione ao final da tag <style> em painel.html */
+        .accordion-item { border: 1px solid var(--cor-borda); border-radius: 6px; margin-bottom: 10px; overflow: hidden; position: relative; }
+        .accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; cursor: pointer; background-color: #f9f9f9; font-weight: 500; }
+        .accordion-header:hover { background-color: #f1f1f1; }
+        .accordion-body { padding: 0 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; background-color: #fff; }
+        .accordion-item.active .accordion-body { max-height: 200px; /* Altura suficiente para o conteúdo */ padding: 15px; }
+        .accordion-header .acoes { display: flex; gap: 10px; }
+        .accordion-item-botoes { position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; z-index: 2; }
+        .accordion-item-botoes .btn { padding: 5px; line-height: 1; }
+        .accordion-item-botoes .btn .material-icons-outlined { font-size: 18px; }
+        .form-group textarea { width: 100%; padding: 12px; border: 1px solid var(--cor-borda); border-radius: 6px; box-sizing: border-box; font-size: 1em; font-family: 'Inter', sans-serif; resize: vertical; }
+        #busca-produto { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--cor-borda); font-size: 1em; margin-bottom: 20px; }
+        .grid-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; }
+        .grid-dashboard .card h2 { display: flex; align-items: center; gap: 10px; margin-top: 0; }
+        .grid-dashboard .card ul { list-style: none; padding: 0; }
+        .grid-dashboard .card li { padding: 8px 0; border-bottom: 1px solid var(--cor-borda); }
+        .grid-dashboard .card li:last-child { border-bottom: none; }
+        .lista-movimentacoes li { display: flex; align-items: center; gap: 10px; }
+        .lista-movimentacoes li.entrada { color: var(--cor-sucesso); }
+        .lista-movimentacoes li.saida { color: var(--cor-erro); }
+        .lista-movimentacoes li .data { margin-left: auto; color: var(--cor-texto-secundario); font-size: 0.9em; }
+        .tabela-produtos .estoque-baixo { color: var(--cor-erro); font-weight: 700; }
+        .tabela-produtos .estoque-baixo .aviso-estoque { font-size: 0.8em; color: var(--cor-texto-secundario); margin-left: 8px; font-weight: 500; }
+
+        /* Estilos para o Tema Escuro (Dark Mode) */
+        body.dark-mode { --cor-fundo: #1a252f; --cor-texto: #ecf0f1; --cor-card: #2c3e50; --cor-borda: #34495e; --cor-sombra: rgba(0,0,0,0.2); --cor-texto-secundario: #95a5a6; }
+        body.dark-mode .card-setor { background: var(--cor-card); }
+        body.dark-mode .accordion-header { background-color: #34495e; }
+        body.dark-mode .accordion-header:hover { background-color: #4a6278; }
+        body.dark-mode .accordion-body { background-color: var(--cor-card); }
+        body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea { background-color: #34495e; border-color: #4a6278; color: var(--cor-texto); }
+        body.dark-mode .tabela-produtos th, body.dark-mode .tabela-produtos td { border-color: var(--cor-borda); }
+        body.dark-mode .btn-editar { background-color: var(--cor-aviso); color: #333; } /* Mantém o contraste */
+
+        /* Estilo para o Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--cor-primaria); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Estilos para Paginação */
+        .paginacao { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; }
+        .paginacao button { border-radius: 6px; }
+
+        /* Estilos para o Loading Spinner */
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--cor-primaria); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body.dark-mode .loading-spinner { border-color: #34495e; border-top-color: var(--cor-primaria); }
+
+        /* Estilos para o Spinner no Botão */
+        .btn .btn-spinner { display: none; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
+        .btn.loading .btn-text { display: none; }
+        .btn.loading .btn-spinner { display: inline-block; }
+
+        /* Estilos para o Rodapé */
+        .app-footer {
+            position: fixed; bottom: 0; left: 260px; right: 0;
+            padding: 10px 20px;
+            background-color: var(--cor-fundo);
+            text-align: center;
+            font-size: 0.9em;
+            color: var(--cor-texto-secundario);
+            border-top: 1px solid var(--cor-borda);
+            z-index: 99;
+        }
+        body.dark-mode .app-footer { background-color: #1a252f; }
+
+        /* Estilos para Notificações (Toast) */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background-color: var(--cor-sucesso);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.5s forwards, fadeOut 0.5s 4.5s forwards;
+        }
+        .toast.erro { background-color: var(--cor-erro); }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateX(100%); } }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">SimpleStock</div>
+        <ul class="sidebar-nav">
+            <li class="nav-item active" data-tela="dashboard"><a href="#"><span class="material-icons-outlined">home</span>Dashboard</a></li>
+            <li class="nav-item" data-tela="estoque"><a href="#"><span class="material-icons-outlined">inventory_2</span>Estoque</a></li>
+            <li class="nav-item" data-tela="fornecedores"><a href="#"><span class="material-icons-outlined">groups</span>Fornecedores</a></li>
+            <li class="nav-item" data-tela="cadastro"><a href="#"><span class="material-icons-outlined">add_circle_outline</span>Cadastrar Produto</a></li>
+            <li class="nav-item" data-tela="entradas"><a href="#"><span class="material-icons-outlined">arrow_downward</span>Registrar Entradas</a></li>
+            <li class="nav-item" data-tela="saidas"><a href="#"><span class="material-icons-outlined">arrow_upward</span>Registrar Saídas</a></li>
+            <li class="nav-item" data-tela="relatorios"><a href="#"><span class="material-icons-outlined">bar_chart</span>Relatórios</a></li>
+            <li class="nav-item" data-tela="configuracoes"><a href="#"><span class="material-icons-outlined">settings</span>Configurações</a></li>
+        </ul>
+        <div class="sidebar-footer"><button class="btn-sair btn">Sair</button></div>
+    </nav>
+
+    <main class="main-content">
+        <!-- O conteúdo será injetado aqui -->
+    </main>
+
+    <div id="modal-container">
+        <!-- Modais serão injetados aqui -->
+    </div>
+    
+    <!-- Contentor para as notificações (toasts) -->
+    <div id="toast-container"></div>
+
+    <footer class="app-footer">
+        <p style="margin: 0;">Desenvolvido por <strong>Jairo Ferreira</strong> &copy; 2025</p>
+    </footer>
+
+    <!-- O JavaScript foi movido para um arquivo externo para melhor organização -->
+    <!-- Biblioteca para gerar PDF a partir de HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script src="script-painel.js"></script>
+</body>
+</html>

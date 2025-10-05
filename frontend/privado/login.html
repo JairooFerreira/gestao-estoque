@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Área Administrativa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cor-primaria: #007bff;
+            --cor-sucesso: #28a745;
+            --cor-erro: #dc3545;
+            --cor-fundo: #f0f2f5;
+            --cor-card: #ffffff;
+            --cor-texto: #333333;
+            --cor-sombra: rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--cor-fundo);
+            color: var(--cor-texto);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background-color: var(--cor-card);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px var(--cor-sombra);
+        }
+
+        .login-card h1 {
+            text-align: center;
+            color: var(--cor-primaria);
+            margin-top: 0;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--cor-primaria);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--cor-primaria);
+            color: white;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        
+        #mensagem-erro {
+            color: var(--cor-erro);
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 20px;
+            display: none; /* Escondido por padrão */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-card">
+            <h1>Acesso Restrito</h1>
+            <form id="form-login">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="senha">Senha</label>
+                    <input type="password" id="senha" name="senha" required>
+                </div>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+            <div id="mensagem-erro"></div>
+        </div>
+        
+    </div>
+
+    <script>
+        const formLogin = document.getElementById('form-login');
+        const mensagemErro = document.getElementById('mensagem-erro');
+        // Lógica para alternar entre ambiente local e de produção (Vercel)
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const URL_BACKEND = isLocal
+            ? `${window.location.protocol}//${window.location.hostname}:3000` // URL para desenvolvimento local
+            : '/api'; // Caminho relativo para produção (Vercel)
+
+        formLogin.addEventListener('submit', async (evento) => {
+            evento.preventDefault(); // Impede o recarregamento da página
+
+            // Esconde mensagens de erro anteriores
+            mensagemErro.style.display = 'none';
+
+            const email = evento.target.email.value;
+            const senha = evento.target.senha.value;
+
+            try {
+                // 1. Enviar os dados para a rota /login do backend
+                const resposta = await fetch(`${URL_BACKEND}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, senha })
+                });
+
+                const dados = await resposta.json();
+
+                // 2. Verificar se o login foi bem-sucedido
+                if (!resposta.ok) {
+                    // Se o status for 401 ou outro erro, exibe a mensagem do backend
+                    throw new Error(dados.message || 'Credenciais inválidas.');
+                }
+
+                // 3. Se o login deu certo, guardar o "crachá" (token)
+                // O localStorage é um "cofre" no navegador para guardar informações
+                localStorage.setItem('token', dados.token);
+
+                // 4. Redirecionar o utilizador para o painel de administração
+                // (iremos criar este ficheiro a seguir)
+                window.location.href = 'painel.html';
+
+            } catch (erro) {
+                // 5. Se deu erro, exibir a mensagem de erro
+                mensagemErro.textContent = erro.message || 'Ocorreu um erro ao tentar fazer login.';
+                mensagemErro.style.display = 'block';
+                console.error('Erro de login:', erro);
+            }
+        });
+    </script>
+
+</body>
+</html>
