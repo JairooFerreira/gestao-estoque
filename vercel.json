@@ -1,14 +1,8 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "backend/server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "frontend/privado/**",
-      "use": "@vercel/static"
-    }
+    { "src": "backend/server.js", "use": "@vercel/node" },
+    { "src": "frontend/privado/**", "use": "@vercel/static" }
   ],
   "routes": [
     {
@@ -16,8 +10,7 @@
       "dest": "/backend/server.js"
     },
     {
-      "src": "/((?!api/).*)",
-      "dest": "/frontend/privado/$1"
+      "handle": "filesystem"
     }
   ]
 }
