@@ -11,12 +11,6 @@ app.use(cors());
 app.use(express.json());
 
 /**
- * Rota para lidar com pedidos automáticos de ícones (.ico) pelo navegador.
- * Responde com 204 (No Content) para evitar erros 404 na consola.
- */
-app.get('/*.ico', (req, res) => res.status(204).send());
-
-/**
  * Middleware de verificação de token importado.
  */
 const verificarToken = require('./middleware');
