@@ -32,20 +32,20 @@ const produtosRoutes = require('./produtos');
 
 
 // --- ROTAS DA API ---
-// Centraliza todas as rotas sob o prefixo /api para consistência com a Vercel
-const apiRouter = express.Router();
-apiRouter.use('/auth', authRoutes);
-apiRouter.use('/setores', setoresRoutes);
-apiRouter.use('/fornecedores', fornecedoresRoutes);
-apiRouter.use('/movimentacoes', movimentacoesRoutes);
-apiRouter.use('/relatorios', relatoriosRoutes);
-apiRouter.use('/produtos', produtosRoutes);
+// As rotas são registadas diretamente no 'app'.
+// A Vercel (via vercel.json) já trata do prefixo /api.
+app.use('/auth', authRoutes);
+app.use('/setores', setoresRoutes);
+app.use('/fornecedores', fornecedoresRoutes);
+app.use('/movimentacoes', movimentacoesRoutes);
+app.use('/relatorios', relatoriosRoutes);
+app.use('/produtos', produtosRoutes);
 
 /** @route   GET /avisos
  *  @desc    Busca todos os avisos públicos.
  *  @access  Público
  */
-apiRouter.get('/avisos', async (req, res) => {
+app.get('/avisos', async (req, res) => {
     try {
         const avisos = await pool.query("SELECT titulo, conteudo, data_criacao FROM avisos WHERE publico = TRUE ORDER BY data_criacao DESC");
         res.json(avisos.rows);
@@ -59,7 +59,7 @@ apiRouter.get('/avisos', async (req, res) => {
  *  @desc    Busca todos os usuários para filtros.
  *  @access  Protegido
  */
-apiRouter.get('/usuarios', verificarToken, async (req, res) => {
+app.get('/usuarios', verificarToken, async (req, res) => {
     try {
         const usuarios = await pool.query("SELECT id, email FROM usuarios ORDER BY email ASC");
         res.json(usuarios.rows);
@@ -70,7 +70,7 @@ apiRouter.get('/usuarios', verificarToken, async (req, res) => {
  *  @desc    Busca o histórico de itens excluídos.
  *  @access  Protegido
  */
-apiRouter.get('/historico-exclusoes', verificarToken, async (req, res) => {
+app.get('/historico-exclusoes', verificarToken, async (req, res) => {
     try {
         const { tipo } = req.query;
         const query = `
@@ -91,7 +91,7 @@ apiRouter.get('/historico-exclusoes', verificarToken, async (req, res) => {
  *  @desc    Busca o log de atividades do sistema.
  *  @access  Protegido
  */
-apiRouter.get('/log-atividades', verificarToken, async (req, res) => {
+app.get('/log-atividades', verificarToken, async (req, res) => {
     try {
         const { page = 1, limit = 20, usuarioId } = req.query;
         const offset = (page - 1) * limit;
@@ -123,7 +123,7 @@ apiRouter.get('/log-atividades', verificarToken, async (req, res) => {
  *  @desc    Busca estatísticas para o dashboard.
  *  @access  Protegido
  */
-apiRouter.get('/dashboard/stats', verificarToken, async (req, res) => {
+app.get('/dashboard/stats', verificarToken, async (req, res) => {
     try {
         // Busca produtos com estoque baixo (ex: <= 5 unidades)
         const baixoEstoqueQuery = "SELECT id, nome, quantidade FROM produtos WHERE quantidade <= estoque_minimo AND estoque_minimo > 0 ORDER BY quantidade ASC LIMIT 5";
@@ -140,14 +140,6 @@ apiRouter.get('/dashboard/stats', verificarToken, async (req, res) => {
 
         res.json({ baixoEstoque: produtosBaixoEstoque.rows, ultimasMovimentacoes: ultimasMovimentacoes.rows });
     } catch (err) { console.error(err.message); res.status(500).json({ message: "Erro no servidor ao buscar estatísticas." }); }
-});
-
-// Usa o router principal da API
-app.use('/api', apiRouter);
-
-// Middleware para capturar rotas /api não encontradas
-app.use('/api/*', (req, res) => {
-    res.status(404).json({ message: `A rota '${req.originalUrl}' não foi encontrada no servidor.` });
 });
 
 // --- Inicialização do Servidor ---
