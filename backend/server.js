@@ -4,9 +4,6 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const app = express();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const PORTA = 3000;
 
 // --- Middlewares (Configurações Iniciais) ---
@@ -18,22 +15,6 @@ app.use(express.json());
  * Responde com 204 (No Content) para evitar erros 404 na consola.
  */
 app.get('/favicon.ico', (req, res) => res.status(204).send());
-
-// --- Configuração do Upload de Imagens ---
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadsDir); // Pasta onde as imagens serão guardadas
-    },
-    filename: function (req, file, cb) {
-        // Cria um nome de ficheiro único para evitar sobreposições
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage: storage });
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 /**
  * Middleware de verificação de token importado.
