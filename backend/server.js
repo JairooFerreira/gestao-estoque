@@ -13,6 +13,12 @@ const PORTA = 3000;
 app.use(cors());
 app.use(express.json());
 
+/**
+ * Rota para lidar com o pedido automático do favicon pelo navegador.
+ * Responde com 204 (No Content) para evitar erros 404 na consola.
+ */
+app.get('/favicon.ico', (req, res) => res.status(204).send());
+
 // --- Configuração do Upload de Imagens ---
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
