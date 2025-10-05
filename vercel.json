@@ -10,7 +10,8 @@
       "dest": "/backend/server.js"
     },
     {
-      "handle": "filesystem"
+      "src": "/(.*)",
+      "dest": "/frontend/privado/$1"
     }
   ]
 }
