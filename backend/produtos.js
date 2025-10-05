@@ -3,19 +3,11 @@ const router = express.Router();
 const pool = require('./db');
 const verificarToken = require('./middleware');
 const { registrarLog } = require('./log');
+const { put } = require('@vercel/blob');
 
 // Importa e configura o multer para esta rota específica
 const multer = require('multer');
-const path = require('path');
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage: storage });
+const upload = multer({ storage: multer.memoryStorage() }); // Usa a memória para processar o ficheiro
 
 /**
  * @route   POST /produtos
@@ -24,10 +16,17 @@ const upload = multer({ storage: storage });
  */
 router.post('/', verificarToken, upload.single('imagem'), async (req, res) => {
     const { nome, quantidade, setor_id, fornecedor_nome, estoque_minimo } = req.body;
-    const imagem_url = req.file ? `/uploads/${req.file.filename}` : null;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+
+        let imagem_url = null;
+        if (req.file) {
+            const { url } = await put(req.file.originalname, req.file.buffer, {
+              access: 'public',
+            });
+            imagem_url = url;
+        }
 
         // Lógica para encontrar ou criar o fornecedor
         let fornecedorId = null;
@@ -119,6 +118,13 @@ router.put('/:id', verificarToken, upload.single('imagem'), async (req, res) => 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+
+        let imagem_url_nova = null;
+        if (req.file) {
+            const { url } = await put(req.file.originalname, req.file.buffer, { access: 'public' });
+            imagem_url_nova = url;
+        }
+
         let fornecedorId = null;
         if (fornecedor_nome && fornecedor_nome.trim() !== '') {
             let resFornecedor = await client.query("SELECT id FROM fornecedores WHERE nome ILIKE $1", [fornecedor_nome.trim()]);
@@ -131,9 +137,9 @@ router.put('/:id', verificarToken, upload.single('imagem'), async (req, res) => 
         }
         let query = 'UPDATE produtos SET nome = $1, quantidade = $2, setor_id = $3, fornecedor_id = $4, estoque_minimo = $5';
         const params = [nome, quantidade, setor_id, fornecedorId, estoque_minimo];
-        if (req.file) {
+        if (imagem_url_nova) {
             query += `, imagem_url = $${params.length + 1}`;
-            params.push(`/uploads/${req.file.filename}`);
+            params.push(imagem_url_nova);
         }
         query += ` WHERE id = $${params.length + 1} RETURNING *`;
         params.push(id);
