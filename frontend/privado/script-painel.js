@@ -43,25 +43,32 @@ async function fetchAPI(endpoint, options = {}) {
     }
 
     options.headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
-    const res = await fetch(`${URL_BACKEND}/${endpoint}`, options);
+    
+    try {
+        const res = await fetch(`${URL_BACKEND}/${endpoint}`, options);
+        const contentType = res.headers.get("content-type");
 
-    // Verifica se a resposta é um JSON ou um ficheiro (como PDF)
-    const contentType = res.headers.get("content-type");
-
-    if (contentType && contentType.includes("application/json")) {
-        const data = await res.json();
         if (!res.ok) {
-            throw new Error(data.message || `Erro ${res.status} - ${res.statusText}`);
+            // Tenta ler a mensagem de erro do corpo da resposta, se for JSON
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || `Erro ${res.status}: ${res.statusText}`);
+            }
+            // Caso contrário, lança um erro genérico com o status
+            throw new Error(`Erro no servidor: ${res.status} ${res.statusText}`);
         }
-        return data;
-    } else if (res.ok) {
-        // Se for um ficheiro, retorna o blob para download
+
+        // Se a resposta for OK, processa o conteúdo
+        if (contentType && contentType.includes("application/json")) {
+            return res.json();
+        }
+        // Se for um ficheiro (PDF, etc.), retorna o blob para download
         return res.blob();
-    } else {
-        // Se for um erro e não for JSON, lê como texto
-        const errorText = await res.text();
-        console.error("Erro não-JSON do servidor:", errorText);
-        throw new Error(`O servidor respondeu com um erro inesperado. Status: ${res.status}`);
+
+    } catch (err) {
+        // Captura erros de rede (ex: servidor offline) ou erros lançados acima
+        console.error(`Erro na chamada à API para '${endpoint}':`, err);
+        throw err; // Re-lança o erro para que a função que chamou possa tratá-lo
     }
 }
 
@@ -669,58 +676,56 @@ mainContent.addEventListener('submit', async (e) => {
     const btn = form.querySelector('button[type="submit"]');
     const btnSalvarNovo = e.submitter && e.submitter.id === 'btn-salvar-e-novo';
     
-    const clickedButton = e.submitter || btn;
-    if (clickedButton) {
-        clickedButton.dataset.originalText = clickedButton.innerHTML;
-        toggleButtonSpinner(clickedButton, true);
+    const submitButton = e.submitter || btn;
+    if (submitButton) {
+        submitButton.dataset.originalText = submitButton.innerHTML;
+        toggleButtonSpinner(submitButton, true);
     }
+
     try {
-        if (form.id === 'form-cadastro-produto') { 
-            const formData = new FormData();
-            formData.append('nome', form.querySelector('#nome-produto').value);
-            formData.append('setor_id', form.querySelector('#setor-produto').value);
-            formData.append('fornecedor_nome', form.querySelector('#fornecedor-produto').value);
-            formData.append('quantidade', form.querySelector('#qtd-produto').value);
-            formData.append('estoque_minimo', form.querySelector('#estoque-minimo-produto').value);
-            const imagemInput = form.querySelector('#imagem-produto');
-            if (imagemInput.files[0]) {
-                formData.append('imagem', imagemInput.files[0]);
-            }
-            await fetchAPI('produtos', { method: 'POST', body: formData }); // Sem Content-Type, o browser define
-            if (btnSalvarNovo) {
+        switch (form.id) {
+            case 'form-cadastro-produto': {
+                const formData = new FormData(form);
+                formData.append('nome', form.querySelector('#nome-produto').value);
+                formData.append('setor_id', form.querySelector('#setor-produto').value);
+                formData.append('fornecedor_nome', form.querySelector('#fornecedor-produto').value);
+                formData.append('quantidade', form.querySelector('#qtd-produto').value);
+                formData.append('estoque_minimo', form.querySelector('#estoque-minimo-produto').value);
+                
+                await fetchAPI('produtos', { method: 'POST', body: formData });
                 mostrarNotificacao('Produto cadastrado com sucesso!');
-                form.reset(); // Limpa o formulário para o próximo
-            } else {
-                mostrarNotificacao('Produto cadastrado com sucesso!'); form.reset(); mostrarTela('estoque'); 
+                form.reset();
+                if (!btnSalvarNovo) {
+                    mostrarTela('estoque');
+                }
+                break;
             }
-        }
-        if (form.id === 'form-registrar-entrada') { 
-            const nomeProduto = form.querySelector('#entrada-produto-nome').value;
-            const produto = listaDeProdutosCache.find(p => p.nome.toLowerCase() === nomeProduto.toLowerCase());
-            if (!produto) {
-                throw new Error('Produto não encontrado. Verifique o nome digitado.');
+            case 'form-registrar-entrada':
+            case 'form-registrar-saida': {
+                const tipo = form.id.includes('entrada') ? 'entrada' : 'saida';
+                const nomeProduto = form.querySelector(`#${tipo}-produto-nome`).value;
+                const produto = listaDeProdutosCache.find(p => p.nome.toLowerCase() === nomeProduto.toLowerCase());
+                if (!produto) {
+                    throw new Error('Produto não encontrado. Verifique o nome digitado.');
+                }
+                const dados = {
+                    produto_id: produto.id,
+                    quantidade: parseInt(form.querySelector(`#${tipo}-quantidade`).value)
+                };
+                const resultado = await fetchAPI(`movimentacoes/${tipo}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+                mostrarNotificacao(resultado.message);
+                form.reset();
+                await carregarHistoricoMovimentacoes(tipo);
+                break;
             }
-            const dadosEntrada = { produto_id: produto.id, quantidade: parseInt(form.querySelector('#entrada-quantidade').value) };
-            const resultado = await fetchAPI('movimentacoes/entrada', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosEntrada) }); 
-            mostrarNotificacao(resultado.message); form.reset(); await carregarHistoricoMovimentacoes('entrada');
-        }
-        if (form.id === 'form-registrar-saida') { 
-            const nomeProduto = form.querySelector('#saida-produto-nome').value;
-            const produto = listaDeProdutosCache.find(p => p.nome.toLowerCase() === nomeProduto.toLowerCase());
-            if (!produto) {
-                throw new Error('Produto não encontrado. Verifique o nome digitado.');
-            }
-            const dadosSaida = { produto_id: produto.id, quantidade: parseInt(form.querySelector('#saida-quantidade').value) };
-            const resultado = await fetchAPI('movimentacoes/saida', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosSaida) }); 
-            mostrarNotificacao(resultado.message); form.reset(); await carregarHistoricoMovimentacoes('saida');
-        }
-        if (form.id === 'form-gerar-relatorio') {
-            await gerarRelatorio(e);
+            case 'form-gerar-relatorio':
+                await gerarRelatorio(e);
+                break;
         }
     } catch (err) {
         mostrarNotificacao(err.message, 'erro');
     } finally {
-        if (clickedButton) toggleButtonSpinner(clickedButton, false);
+        if (submitButton) toggleButtonSpinner(submitButton, false);
     }
 });
 

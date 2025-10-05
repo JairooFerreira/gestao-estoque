@@ -80,10 +80,15 @@ router.delete('/:id', verificarToken, async (req, res) => {
             await client.query("INSERT INTO historico_exclusoes (tipo_item, nome_item, usuario_id) VALUES ('fornecedor', $1, $2)", [fornecedor.rows[0].nome, req.usuario.id]);
             await registrarLog(req.usuario.id, `Apagou o fornecedor: ${fornecedor.rows[0].nome}`);
         }
-        const resultado = await pool.query("DELETE FROM fornecedores WHERE id = $1", [id]);
+        
+        // A exclusão deve ser feita na mesma transação (client)
+        const resultado = await client.query("DELETE FROM fornecedores WHERE id = $1", [id]);
+        
         if (resultado.rowCount === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: "Fornecedor não encontrado." }); }
+        
         await client.query('COMMIT');
         res.status(200).json({ message: "Fornecedor apagado com sucesso." });
+
     } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ message: "Erro no servidor ao apagar fornecedor." }); } finally {
         client.release();
     }

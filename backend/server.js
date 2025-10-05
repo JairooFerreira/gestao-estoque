@@ -11,10 +11,10 @@ app.use(cors());
 app.use(express.json());
 
 /**
- * Rota para lidar com o pedido automático do favicon pelo navegador.
+ * Rota para lidar com pedidos automáticos de ícones (.ico) pelo navegador.
  * Responde com 204 (No Content) para evitar erros 404 na consola.
  */
-app.get('/favicon.ico', (req, res) => res.status(204).send());
+app.get('/*.ico', (req, res) => res.status(204).send());
 
 /**
  * Middleware de verificação de token importado.
@@ -144,6 +144,11 @@ apiRouter.get('/dashboard/stats', verificarToken, async (req, res) => {
 
 // Usa o router principal da API
 app.use('/api', apiRouter);
+
+// Middleware para capturar rotas /api não encontradas
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ message: `A rota '${req.originalUrl}' não foi encontrada no servidor.` });
+});
 
 // --- Inicialização do Servidor ---
 app.listen(PORTA, () => { console.log(`Servidor rodando na porta ${PORTA}.`); });
