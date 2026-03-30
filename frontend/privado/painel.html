@@ -6,6 +6,7 @@
     <title>Painel - SimpleStock</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="estilo-painel.css">
     <style>
         :root { --cor-fundo: #f4f7fa; --cor-texto: #333; --cor-primaria: #0d6efd; --cor-sucesso: #198754; --cor-erro: #dc3545; --cor-aviso: #ffc107; --cor-menu-fundo: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%); --cor-menu-texto: #ecf0f1; --cor-menu-hover: #34495e; --cor-menu-ativo: #0d6efd; --cor-sair: #e74c3c; --cor-card: #fff; --cor-sombra: rgba(0,0,0,0.05); --cor-borda: #dee2e6; --cor-texto-secundario: #6c757d; }
         * { box-sizing: border-box; }
@@ -50,12 +51,11 @@
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--cor-borda); border-radius: 6px; box-sizing: border-box; font-size: 1em; }
     </style>
     <style>
-        /* Adicione ao final da tag <style> em painel.html */
         .accordion-item { border: 1px solid var(--cor-borda); border-radius: 6px; margin-bottom: 10px; overflow: hidden; position: relative; }
         .accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; cursor: pointer; background-color: #f9f9f9; font-weight: 500; }
         .accordion-header:hover { background-color: #f1f1f1; }
         .accordion-body { padding: 0 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; background-color: #fff; }
-        .accordion-item.active .accordion-body { max-height: 200px; /* Altura suficiente para o conteúdo */ padding: 15px; }
+        .accordion-item.active .accordion-body { max-height: 200px; padding: 15px; }
         .accordion-header .acoes { display: flex; gap: 10px; }
         .accordion-item-botoes { position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; z-index: 2; }
         .accordion-item-botoes .btn { padding: 5px; line-height: 1; }
@@ -73,8 +73,11 @@
         .lista-movimentacoes li .data { margin-left: auto; color: var(--cor-texto-secundario); font-size: 0.9em; }
         .tabela-produtos .estoque-baixo { color: var(--cor-erro); font-weight: 700; }
         .tabela-produtos .estoque-baixo .aviso-estoque { font-size: 0.8em; color: var(--cor-texto-secundario); margin-left: 8px; font-weight: 500; }
-
-        /* Estilos para o Tema Escuro (Dark Mode) */
+        .card-dashboard { text-align: center; padding: 20px; border: 1px solid var(--cor-borda); border-radius: 8px; background: #fff; transition: all 0.3s; cursor: pointer; }
+        .card-dashboard:hover { transform: translateY(-5px); box-shadow: 0 8px 20px var(--cor-sombra); }
+        .card-dashboard .icone-card { font-size: 36px; color: var(--cor-primaria); }
+        .card-dashboard h4 { margin: 10px 0 5px; font-size: 1.1em; }
+        .card-dashboard .valor-card { font-size: 1.3em; font-weight: 700; color: var(--cor-sucesso); }
         body.dark-mode { --cor-fundo: #1a252f; --cor-texto: #ecf0f1; --cor-card: #2c3e50; --cor-borda: #34495e; --cor-sombra: rgba(0,0,0,0.2); --cor-texto-secundario: #95a5a6; }
         body.dark-mode .card-setor { background: var(--cor-card); }
         body.dark-mode .accordion-header { background-color: #34495e; }
@@ -82,66 +85,26 @@
         body.dark-mode .accordion-body { background-color: var(--cor-card); }
         body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea { background-color: #34495e; border-color: #4a6278; color: var(--cor-texto); }
         body.dark-mode .tabela-produtos th, body.dark-mode .tabela-produtos td { border-color: var(--cor-borda); }
-        body.dark-mode .btn-editar { background-color: var(--cor-aviso); color: #333; } /* Mantém o contraste */
-
-        /* Estilo para o Toggle Switch */
+        body.dark-mode .btn-editar { background-color: var(--cor-aviso); color: #333; }
+        body.dark-mode .card-dashboard { background: var(--cor-card); }
         .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--cor-primaria); }
         input:checked + .slider:before { transform: translateX(26px); }
-
-        /* Estilos para Paginação */
         .paginacao { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; }
         .paginacao button { border-radius: 6px; }
-
-        /* Estilos para o Loading Spinner */
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--cor-primaria); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         body.dark-mode .loading-spinner { border-color: #34495e; border-top-color: var(--cor-primaria); }
-
-        /* Estilos para o Spinner no Botão */
         .btn .btn-spinner { display: none; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
         .btn.loading .btn-text { display: none; }
         .btn.loading .btn-spinner { display: inline-block; }
-
-        /* Estilos para o Rodapé */
-        .app-footer {
-            position: fixed; bottom: 0; left: 260px; right: 0;
-            padding: 10px 20px;
-            background-color: var(--cor-fundo);
-            text-align: center;
-            font-size: 0.9em;
-            color: var(--cor-texto-secundario);
-            border-top: 1px solid var(--cor-borda);
-            z-index: 99;
-        }
+        .app-footer { position: fixed; bottom: 0; left: 260px; right: 0; padding: 10px 20px; background-color: var(--cor-fundo); text-align: center; font-size: 0.9em; color: var(--cor-texto-secundario); border-top: 1px solid var(--cor-borda); z-index: 99; }
         body.dark-mode .app-footer { background-color: #1a252f; }
-
-        /* Estilos para Notificações (Toast) */
-        #toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .toast {
-            background-color: var(--cor-sucesso);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            opacity: 0;
-            transform: translateX(100%);
-            animation: slideIn 0.5s forwards, fadeOut 0.5s 4.5s forwards;
-        }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background-color: var(--cor-sucesso); color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateX(100%); animation: slideIn 0.5s forwards, fadeOut 0.5s 4.5s forwards; }
         .toast.erro { background-color: var(--cor-erro); }
         @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateX(100%); } }

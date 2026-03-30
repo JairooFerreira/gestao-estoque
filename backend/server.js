@@ -4,11 +4,50 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const app = express();
-const PORTA = 3000;
+const { hash, genSalt } = require('bcryptjs');
+const path = require('path');
+const fs = require('fs');
+const PORTA = process.env.PORT || 3000;
 
 // --- Middlewares (Configurações Iniciais) ---
-app.use(cors());
+// Configuração de CORS mais explícita para desenvolvimento e produção
+const whiteList = [process.env.FRONTEND_URL, 'http://127.0.0.1:5500', 'http://localhost:5500'];
+const corsOptions = {
+    origin: function (origin, callback) {
+        (whiteList.indexOf(origin) !== -1 || !origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-Type', 'Authorization'], // Permite os cabeçalhos necessários
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// --- Configuração para servir imagens locais ---
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+app.use('/uploads', express.static(uploadsDir));
+
+// --- Servir Frontend em Produção ---
+// Tenta primeiro a pasta copiada dinamicamente no Render, se não, usa a estrutura original
+let frontendPath = path.join(__dirname, 'frontend/privado');
+if (!fs.existsSync(frontendPath)) {
+    frontendPath = path.join(__dirname, '../frontend/privado');
+}
+
+app.use(express.static(frontendPath));
+
+// Redireciona a raiz para o login
+app.get('/', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'login.html'));
+});
+
+/**
+ * Rota para lidar com o pedido automático do favicon pelo navegador.
+ * Responde com 204 (No Content) para evitar erros 404 na consola.
+ */
+app.get('/favicon.ico', (req, res) => res.status(204).send());
 
 /**
  * Middleware de verificação de token importado.
@@ -110,7 +149,7 @@ app.get('/log-atividades', verificarToken, async (req, res) => {
 });
 
 // =================================
-//        ROTA DE DASHBOARD
+//        ROTAS DE DASHBOARD
 // =================================
 
 /** @route   GET /dashboard/stats
@@ -136,5 +175,79 @@ app.get('/dashboard/stats', verificarToken, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).json({ message: "Erro no servidor ao buscar estatísticas." }); }
 });
 
+// ROTA PARA VALOR TOTAL DO ESTOQUE POR SETOR
+app.get('/dashboard/valor-por-setor', verificarToken, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                s.nome as setor_nome, 
+                s.id as setor_id,
+                s.icone,
+                COALESCE(SUM(p.quantidade * p.custo_medio), 0) as valor_total
+            FROM setores s
+            LEFT JOIN produtos p ON s.id = p.setor_id
+            GROUP BY s.id
+            ORDER BY valor_total DESC;
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Erro ao calcular valor do estoque por setor." });
+    }
+});
+
+// ROTA PARA GASTOS (COMPRAS) POR SETOR
+app.get('/dashboard/gastos-por-setor', verificarToken, async (req, res) => {
+    const { ano, mes } = req.query;
+    if (!ano || !mes) { return res.status(400).json({ message: "Os parâmetros 'ano' e 'mes' são obrigatórios." }); }
+    try {
+        const query = `
+            SELECT 
+                s.nome as setor_nome,
+                COALESCE(SUM(m.quantidade * m.valor_unitario), 0) as total_gasto
+            FROM movimentacoes m
+            JOIN produtos p ON m.produto_id = p.id
+            JOIN setores s ON p.setor_id = s.id
+            WHERE m.tipo = 'entrada' AND EXTRACT(YEAR FROM m.data_movimento) = $1 AND EXTRACT(MONTH FROM m.data_movimento) = $2
+            GROUP BY s.id
+            ORDER BY total_gasto DESC;
+        `;
+        const result = await pool.query(query, [ano, mes]);
+        res.json(result.rows);
+    } catch (err) { console.error(err.message); res.status(500).json({ message: "Erro ao calcular gastos por setor." }); }
+});
+
 // --- Inicialização do Servidor ---
-app.listen(PORTA, () => { console.log(`Servidor rodando na porta ${PORTA}.`); });
+async function prepararAmbienteDev() {
+    // Esta função só é executada se não estivermos em produção (ex: na Vercel)
+    if (process.env.NODE_ENV === 'production') {
+        console.log('A executar em modo de produção.');
+        return;
+    }
+
+    console.log('--- A preparar ambiente de desenvolvimento ---');
+    const emailDev = 'jairofelipe95@gmail.com';
+    const senhaDev = '147Xolin@';
+
+    try {
+        const salt = await genSalt(10);
+        const senhaHash = await hash(senhaDev, salt);
+
+        const query = `
+            INSERT INTO usuarios (email, senha_hash) VALUES ($1, $2)
+            ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash;
+        `;
+        await pool.query(query, [emailDev, senhaHash]);
+        console.log(`✅ Utilizador de teste '${emailDev}' garantido na base de dados.`);
+    } catch (err) {
+        // CORREÇÃO: Exibe o erro completo e encerra o processo se a preparação falhar.
+        console.error('❌ Erro ao preparar o utilizador de desenvolvimento:', err);
+        process.exit(1); // Impede o servidor de arrancar se a base de dados não estiver pronta.
+    }
+}
+
+app.listen(PORTA, async () => {
+    await prepararAmbienteDev();
+    console.log(`🚀 Servidor a postos e a rodar na porta ${PORTA}.`);
+});

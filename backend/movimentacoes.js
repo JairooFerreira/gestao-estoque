@@ -9,28 +9,36 @@ const { registrarLog } = require('./log');
  *  @access  Protegido
  */
 router.post('/entrada', verificarToken, async (req, res) => {
-    const { produto_id, quantidade } = req.body;
+    const { produto_id, quantidade, valor_unitario } = req.body;
     const qtdNum = Number(quantidade);
+    const valorUnitarioNum = parseFloat(valor_unitario);
 
-    if (!produto_id || !qtdNum || qtdNum <= 0) {
-        return res.status(400).json({ message: "Dados inválidos. É necessário fornecer 'produto_id' e 'quantidade' (numérica e maior que zero)." });
+    if (!produto_id || !qtdNum || qtdNum <= 0 || valorUnitarioNum < 0) {
+        return res.status(400).json({ message: "Dados inválidos. Verifique o produto, a quantidade e o valor unitário." });
     }
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        const updateQuery = `UPDATE produtos SET quantidade = quantidade + $1 WHERE id = $2 RETURNING nome`;
-        const updatedProduct = await client.query(updateQuery, [qtdNum, produto_id]);
-
-        if (updatedProduct.rows.length === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: "Produto não encontrado." });
+        // 1. Obter o estado atual do produto (quantidade e custo médio antigo)
+        const produtoAtual = await client.query("SELECT nome, quantidade, custo_medio FROM produtos WHERE id = $1 FOR UPDATE", [produto_id]);
+        if (produtoAtual.rows.length === 0) {
+            throw new Error("Produto não encontrado.");
         }
+        const { nome: nomeProduto, quantidade: qtdAntiga, custo_medio: custoMedioAntigo } = produtoAtual.rows[0];
 
-        const insertQuery = `INSERT INTO movimentacoes (produto_id, tipo, quantidade, data_movimento) VALUES ($1, 'entrada', $2, NOW())`;
-        await client.query(insertQuery, [produto_id, qtdNum]);
+        // 2. Calcular o novo custo médio ponderado
+        const qtdNovaTotal = Number(qtdAntiga) + qtdNum;
+        const novoCustoMedio = ((Number(custoMedioAntigo) * Number(qtdAntiga)) + (valorUnitarioNum * qtdNum)) / qtdNovaTotal;
 
-        const nomeProduto = updatedProduct.rows[0].nome;
+        // 3. Atualizar o produto com a nova quantidade e o novo custo médio
+        const updateQuery = `UPDATE produtos SET quantidade = $1, custo_medio = $2 WHERE id = $3`;
+        await client.query(updateQuery, [qtdNovaTotal, novoCustoMedio, produto_id]);
+
+        // 4. Registrar a movimentação de entrada com o valor da compra
+        const insertQuery = `INSERT INTO movimentacoes (produto_id, tipo, quantidade, valor_unitario, data_movimento) VALUES ($1, 'entrada', $2, $3, NOW())`;
+        await client.query(insertQuery, [produto_id, qtdNum, valorUnitarioNum]);
+
         await registrarLog(req.usuario.id, `Registrou entrada de ${qtdNum} unidade(s) do produto: ${nomeProduto}`);
 
         await client.query('COMMIT');
@@ -49,7 +57,7 @@ router.post('/entrada', verificarToken, async (req, res) => {
  *  @access  Protegido
  */
 router.post('/saida', verificarToken, async (req, res) => {
-    const { produto_id, quantidade } = req.body;
+    const { produto_id, quantidade, destino } = req.body; // Adicionamos 'destino'
     const qtdNum = Number(quantidade);
     if (!produto_id || !qtdNum || qtdNum <= 0) {
         return res.status(400).json({ message: "Dados inválidos. É necessário fornecer 'produto_id' e 'quantidade' (numérica e maior que zero)." });
@@ -57,7 +65,8 @@ router.post('/saida', verificarToken, async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const stockCheck = await client.query("SELECT nome, quantidade FROM produtos WHERE id = $1 FOR UPDATE", [produto_id]);
+        // Obtemos também o custo médio para registrar na saída
+        const stockCheck = await client.query("SELECT nome, quantidade, custo_medio FROM produtos WHERE id = $1 FOR UPDATE", [produto_id]);
         if (stockCheck.rows.length === 0) {
             throw new Error("Produto não encontrado.");
         }
@@ -66,10 +75,15 @@ router.post('/saida', verificarToken, async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).json({ message: `Estoque insuficiente para "${produto.nome}". Estoque atual: ${produto.quantidade}.` });
         }
+
+        // O custo médio não muda na saída, apenas a quantidade.
         const updateQuery = `UPDATE produtos SET quantidade = quantidade - $1 WHERE id = $2`;
         await client.query(updateQuery, [qtdNum, produto_id]);
-        const insertQuery = `INSERT INTO movimentacoes (produto_id, tipo, quantidade, data_movimento) VALUES ($1, 'saida', $2, NOW())`;
-        await client.query(insertQuery, [produto_id, qtdNum]);
+
+        // Registramos a saída com o custo do produto naquele momento (custo médio)
+        const insertQuery = `INSERT INTO movimentacoes (produto_id, tipo, quantidade, valor_unitario, data_movimento) VALUES ($1, 'saida', $2, $3, NOW())`;
+        await client.query(insertQuery, [produto_id, qtdNum, produto.custo_medio]);
+
         await registrarLog(req.usuario.id, `Registrou saída de ${qtdNum} unidade(s) do produto: ${produto.nome}`);
         await client.query('COMMIT');
         res.status(200).json({ message: `Saída de ${qtdNum} unidade(s) de "${produto.nome}" registada com sucesso!` });
@@ -91,7 +105,14 @@ router.post('/saida', verificarToken, async (req, res) => {
 router.get('/', verificarToken, async (req, res) => {
     try {
         const { tipo } = req.query;
-        let query = `
+
+        // CORREÇÃO: Valida o parâmetro 'tipo' antes de usá-lo na query.
+        // Sem isso, `tipo` seria undefined e causaria erro no PostgreSQL.
+        if (!tipo || !['entrada', 'saida'].includes(tipo)) {
+            return res.status(400).json({ message: "Parâmetro 'tipo' é obrigatório e deve ser 'entrada' ou 'saida'." });
+        }
+
+        const query = `
             SELECT m.tipo, m.quantidade, m.data_movimento, p.nome as produto_nome
             FROM movimentacoes m
             JOIN produtos p ON m.produto_id = p.id

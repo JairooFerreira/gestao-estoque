@@ -84,7 +84,8 @@ router.get('/movimentacoes', verificarToken, async (req, res) => {
             FROM movimentacoes m
             JOIN produtos p ON m.produto_id = p.id
             LEFT JOIN fornecedores f ON p.fornecedor_id = f.id
-            WHERE m.data_movimento BETWEEN $1 AND $2
+            WHERE m.data_movimento >= $1::timestamp
+              AND m.data_movimento < ($2::date + INTERVAL '1 day')
             ORDER BY m.data_movimento DESC
         `;
 

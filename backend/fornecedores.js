@@ -60,8 +60,10 @@ router.put('/:id', verificarToken, async (req, res) => {
         const { nome, telefone, email, cidade, setor_id, tipos_pecas } = req.body;
         if (!nome || !setor_id) return res.status(400).json({ message: "Nome e Setor são obrigatórios." });
         const fornecedorAtualizado = await pool.query("UPDATE fornecedores SET nome = $1, telefone = $2, email = $3, cidade = $4, setor_id = $5, tipos_pecas = $6 WHERE id = $7 RETURNING *", [nome, telefone, email, cidade, setor_id, tipos_pecas, id]);
-        await registrarLog(req.usuario.id, `Atualizou o fornecedor: ${nome}`);
+        // CORREÇÃO: Verifica se o fornecedor existe ANTES de registar o log.
+        // Antes, o log era gravado mesmo quando o ID não existia no banco.
         if (fornecedorAtualizado.rowCount === 0) return res.status(404).json({ message: "Fornecedor não encontrado." });
+        await registrarLog(req.usuario.id, `Atualizou o fornecedor: ${nome}`);
         res.json(fornecedorAtualizado.rows[0]);
     } catch (err) { res.status(500).json({ message: "Erro no servidor ao atualizar fornecedor." }); }
 });

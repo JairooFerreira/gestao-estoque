@@ -3,11 +3,19 @@ const router = express.Router();
 const pool = require('./db');
 const verificarToken = require('./middleware');
 const { registrarLog } = require('./log');
-const { put } = require('@vercel/blob');
 
 // Importa e configura o multer para esta rota específica
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() }); // Usa a memória para processar o ficheiro
+const path = require('path');
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'uploads/')); // Salva na pasta 'uploads' dentro do backend
+    },
+    filename: function (req, file, cb) {
+        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
 
 /**
  * @route   POST /produtos
@@ -16,17 +24,10 @@ const upload = multer({ storage: multer.memoryStorage() }); // Usa a memória pa
  */
 router.post('/', verificarToken, upload.single('imagem'), async (req, res) => {
     const { nome, quantidade, setor_id, fornecedor_nome, estoque_minimo } = req.body;
+    const imagem_url = req.file ? `/uploads/${req.file.filename}` : null; // Caminho local da imagem
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        let imagem_url = null;
-        if (req.file) {
-            const { url } = await put(req.file.originalname, req.file.buffer, {
-              access: 'public',
-            });
-            imagem_url = url;
-        }
 
         // Lógica para encontrar ou criar o fornecedor
         let fornecedorId = null;
@@ -77,7 +78,10 @@ router.get('/', verificarToken, async (req, res) => {
         }
         if (dias_sem_movimento && Number(dias_sem_movimento) > 0) {
             whereClause += whereClause ? ' AND ' : ' WHERE ';
-            whereClause += `COALESCE((SELECT MAX(data_movimento) FROM movimentacoes WHERE produto_id = p.id), p.data_criacao) < NOW() - INTERVAL '${Number(dias_sem_movimento)} days'`;
+            // CORREÇÃO: Usando parâmetro parametrizado ($N) ao invés de interpolação direta na query.
+            // A multiplicação por INTERVAL '1 day' é a forma correta de usar um valor dinâmico com INTERVAL no pg.
+            whereClause += `COALESCE((SELECT MAX(data_movimento) FROM movimentacoes WHERE produto_id = p.id), p.data_criacao) < NOW() - ($${params.length + 1} * INTERVAL '1 day')`;
+            params.push(Number(dias_sem_movimento));
         }
 
         const totalResult = await pool.query(`SELECT COUNT(*) FROM produtos p ${whereClause}`, params);
@@ -119,12 +123,6 @@ router.put('/:id', verificarToken, upload.single('imagem'), async (req, res) => 
     try {
         await client.query('BEGIN');
 
-        let imagem_url_nova = null;
-        if (req.file) {
-            const { url } = await put(req.file.originalname, req.file.buffer, { access: 'public' });
-            imagem_url_nova = url;
-        }
-
         let fornecedorId = null;
         if (fornecedor_nome && fornecedor_nome.trim() !== '') {
             let resFornecedor = await client.query("SELECT id FROM fornecedores WHERE nome ILIKE $1", [fornecedor_nome.trim()]);
@@ -137,9 +135,9 @@ router.put('/:id', verificarToken, upload.single('imagem'), async (req, res) => 
         }
         let query = 'UPDATE produtos SET nome = $1, quantidade = $2, setor_id = $3, fornecedor_id = $4, estoque_minimo = $5';
         const params = [nome, quantidade, setor_id, fornecedorId, estoque_minimo];
-        if (imagem_url_nova) {
+        if (req.file) {
             query += `, imagem_url = $${params.length + 1}`;
-            params.push(imagem_url_nova);
+            params.push(`/uploads/${req.file.filename}`);
         }
         query += ` WHERE id = $${params.length + 1} RETURNING *`;
         params.push(id);
