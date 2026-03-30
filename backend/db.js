@@ -4,16 +4,19 @@ const { Pool } = require('pg');
 // Usando o "Cofre de Segredos" (pacote dotenv)
 require('dotenv').config();
 
-// A Vercel e outros provedores de nuvem fornecem uma única URL de conexão (POSTGRES_URL).
-// Esta abordagem é mais moderna e flexível.
-// O código abaixo verifica se a POSTGRES_URL existe (ambiente de produção/Vercel).
-// Se não existir, ele constrói a URL de conexão a partir das variáveis do seu ficheiro .env local.
-const connectionString = process.env.POSTGRES_URL || `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_DATABASE}`;
+// Suporte a múltiplos nomes de variável:
+// - POSTGRES_URL: usado localmente e no Supabase/Vercel
+// - DATABASE_URL: usado pelo Render
+// - Fallback: variáveis individuais do .env local (DB_HOST, etc.)
+const cloudUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const connectionString = cloudUrl || `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_DATABASE}`;
 
+// SSL é obrigatório na cloud (Neon, Supabase, Render, etc).
+// Quando cloudUrl está definida, assume que é cloud e habilita SSL.
+// Sem cloudUrl, assume banco local e desabilita SSL.
 const pool = new Pool({
   connectionString,
-  // Em produção (Vercel), é obrigatório usar SSL.
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: cloudUrl ? { rejectUnauthorized: false } : false
 });
 
 // Exportando o conector para que outros arquivos possam usá-lo

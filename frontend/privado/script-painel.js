@@ -2,9 +2,17 @@
 //  CONFIGURAÇÃO E ESTADO GLOBAL
 // ===================================================================
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isVercel = window.location.hostname.includes('vercel.app');
+const isRender = window.location.hostname.includes('onrender.com');
+
+// Local: aponta para porta 3000
+// Vercel: usa /api (roteado pelo vercel.json)
+// Render: usa a mesma origem sem prefixo (o Express serve tudo)
 const URL_BACKEND = isLocal
-    ? `${window.location.protocol}//${window.location.hostname}:3000` // URL para desenvolvimento local
-    : '/api'; // Caminho relativo para produção (Vercel)
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : isVercel
+        ? '/api'
+        : `${window.location.protocol}//${window.location.hostname}`; // Render: mesma origem
 const token = localStorage.getItem('token');
 const mainContent = document.querySelector('.main-content');
 const modalContainer = document.getElementById('modal-container');
@@ -19,8 +27,8 @@ const templates = {
     estoque: `<div class="header-tela"><h1>Setores do Estoque</h1><div><button id="btn-ver-historico" class="btn btn-primario"><span class="material-icons-outlined">history</span>Ver Exclusões</button><button id="btn-add-setor" class="btn btn-sucesso"><span class="material-icons-outlined">add</span>Adicionar Setor</button></div></div><div id="container-setores" class="grid-setores"></div>`,
     produtosSetor: `<div class="header-tela"><h1 id="titulo-setor">Produtos</h1><div><button id="btn-gerar-relatorio" class="btn btn-primario"><span class="material-icons-outlined">assessment</span>Gerar Relatório</button><button id="btn-voltar-setores" class="btn btn-primario"><span class="material-icons-outlined">arrow_back</span>Voltar</button></div></div><div class="card"><input type="search" id="busca-produto" placeholder="&#x1F50D; Pesquisar produto por nome..."><div id="container-tabela-produtos"></div><div id="paginacao-produtos" class="paginacao"></div></div>`,
     cadastro: `<div class="card"><h1>Cadastrar Novo Produto</h1><form id="form-cadastro-produto" enctype="multipart/form-data"><div class="form-group"><label for="nome-produto">Nome *</label><input type="text" id="nome-produto" required></div><div class="form-group"><label for="setor-produto">Setor *</label><select id="setor-produto" required></select></div><div class="form-group"><label for="fornecedor-produto">Fornecedor</label><input type="text" id="fornecedor-produto" list="fornecedores-lista"><datalist id="fornecedores-lista"></datalist></div><div class="form-group"><label for="qtd-produto">Estoque Inicial *</label><input type="number" id="qtd-produto" value="0" min="0" required></div><div class="form-group"><label for="estoque-minimo-produto">Estoque Mínimo Recomendado</label><input type="number" id="estoque-minimo-produto" value="0" min="0"></div><div class="form-group"><label for="imagem-produto">Imagem</label><input type="file" id="imagem-produto" name="imagem" accept="image/*"></div><button type="submit" class="btn btn-primario">Salvar Produto</button></form></div>`,
-    entradas: `<div class="card"><h1>Registrar Nova Entrada</h1><form id="form-registrar-entrada"><div class="form-group"><label for="entrada-produto-nome">Produto *</label><input type="text" id="entrada-produto-nome" list="produtos-lista-entrada" required><datalist id="produtos-lista-entrada"></datalist></div><div class="form-group"><label for="entrada-quantidade">Quantidade *</label><input type="number" id="entrada-quantidade" min="1" required></div><button type="submit" class="btn btn-sucesso">Registrar Entrada</button></form></div><div id="historico-container" class="card"></div>`,
-    saidas: `<div class="card"><h1>Registrar Nova Saída</h1><form id="form-registrar-saida"><div class="form-group"><label for="saida-produto-nome">Produto *</label><input type="text" id="saida-produto-nome" list="produtos-lista-saida" required><datalist id="produtos-lista-saida"></datalist></div><div class="form-group"><label for="saida-quantidade">Quantidade *</label><input type="number" id="saida-quantidade" min="1" required></div><button type="submit" class="btn btn-erro">Registrar Saída</button></form></div><div id="historico-container" class="card"></div>`,
+    entradas: `<div class="card"><h1>Registrar Nova Entrada</h1><form id="form-registrar-entrada"><div class="form-group"><label for="entrada-produto-nome">Produto *</label><input type="text" id="entrada-produto-nome" list="produtos-lista-entrada" required><datalist id="produtos-lista-entrada"></datalist></div><div class="form-group"><label for="entrada-quantidade">Quantidade *</label><input type="number" id="entrada-quantidade" min="1" required></div><div class="form-group"><label for="entrada-valor-unitario">Valor Unitário (R$) *</label><input type="number" id="entrada-valor-unitario" step="0.01" min="0" required></div><button type="submit" class="btn btn-sucesso">Registrar Entrada</button></form></div><div id="historico-container" class="card"></div>`,
+    saidas: `<div class="card"><h1>Registrar Nova Saída</h1><form id="form-registrar-saida"><div class="form-group"><label for="saida-produto-nome">Produto *</label><input type="text" id="saida-produto-nome" list="produtos-lista-saida" required><datalist id="produtos-lista-saida"></datalist></div><div class="form-group"><label for="saida-quantidade">Quantidade *</label><input type="number" id="saida-quantidade" min="1" required></div><div class="form-group"><label for="saida-destino">Destino (Opcional)</label><input type="text" id="saida-destino" placeholder="Ex: Venda, Uso interno"></div><button type="submit" class="btn btn-erro">Registrar Saída</button></form></div><div id="historico-container" class="card"></div>`,
     modalSetor: `<div id="modal-setor" class="modal" style="display:flex;"><div class="modal-conteudo"><h2>Adicionar Novo Setor</h2><form id="form-add-setor"><div class="form-group"><input type="text" id="nome-setor" placeholder="Nome do Setor" required></div><div class="form-group"><input type="text" id="icone-setor" placeholder="Ícone (ex: 'folder')"></div><button type="submit" class="btn btn-sucesso">Salvar</button></form></div></div>`,
     modalEditarProduto: `<div id="modal-editar-produto" class="modal" style="display:flex;"><div class="modal-conteudo"><h2>Editar Produto</h2><form id="form-editar-produto" enctype="multipart/form-data"><input type="hidden" id="edit-produto-id"><div class="form-group"><label>Nome *</label><input type="text" id="edit-nome-produto" required></div><div class="form-group"><label>Setor *</label><select id="edit-setor-produto" required></select></div><div class="form-group"><label>Fornecedor</label><input type="text" id="edit-fornecedor-produto" list="edit-fornecedores-lista"><datalist id="edit-fornecedores-lista"></datalist></div><div class="form-group"><label>Quantidade *</label><input type="number" id="edit-qtd-produto" min="0" required></div><div class="form-group"><label>Estoque Mínimo Recomendado</label><input type="number" id="edit-estoque-minimo-produto" value="0" min="0"></div><div class="form-group"><label for="edit-imagem-produto">Alterar Imagem</label><input type="file" id="edit-imagem-produto" name="imagem" accept="image/*"></div><button type="submit" class="btn btn-primario">Salvar Alterações</button></form></div></div>`,
     modalHistoricoExclusoes: `<div id="modal-historico" class="modal" style="display:flex;"><div class="modal-conteudo" style="max-width: 800px;"><span class="btn-fechar-modal" style="position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer;">&times;</span><h2>Histórico de Exclusões</h2><div id="historico-exclusoes-produtos"></div><div id="historico-exclusoes-setores" style="margin-top: 20px;"></div></div></div>`,
@@ -138,12 +146,6 @@ async function carregarProdutosPorSetor(setorId, setorNome, page = 1, termo = ''
         const dadosPaginados = await fetchAPI(`produtos?setorId=${setorId}&page=${page}&termo=${encodeURIComponent(termo)}`);
         renderizarTabelaProdutos(dadosPaginados.items);
         renderizarPaginacao('paginacao-produtos', dadosPaginados, (newPage) => carregarProdutosPorSetor(setorId, setorNome, newPage, termo));
-
-        // Remove o event listener antigo para evitar múltiplos listeners
-        buscaInput.oninput = null; 
-        buscaInput.oninput = debounce((e) => {
-            carregarProdutosPorSetor(setorId, setorNome, 1, e.target.value);
-        });
     } catch (err) { container.innerHTML = `<p style="color:var(--cor-erro)">${err.message}</p>`; }
 }
 
@@ -179,6 +181,7 @@ function renderizarTabelaProdutos(produtos) {
         return;
     }
     let tabelaHTML = `<table class="tabela-produtos"><thead><tr><th>Produto</th><th>Fornecedor</th><th>Qtd</th><th>Última Movimentação</th><th>Ações</th></tr></thead><tbody>`;
+    const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     produtos.forEach(p => {
         // Se a imagem_url já for um URL completo (começa com http), usa-o diretamente.
         // Caso contrário, monta o URL com o placeholder.
@@ -193,8 +196,8 @@ function renderizarTabelaProdutos(produtos) {
         
         tabelaHTML += `
             <tr>
-                <td data-label="Produto"><img src="${imgUrl}" alt=""> ${p.nome}</td>
-                <td data-label="Fornecedor">${p.fornecedor_nome || '-'}</td>
+                <td data-label="Produto"><img src="${imgUrl}" alt=""> ${p.nome} <br><small style="color: var(--cor-texto-secundario)">Custo Unit.: ${formatadorMoeda.format(p.custo_medio)}</small></td>
+                <td data-label="Valor Total" style="font-weight: 500;">${formatadorMoeda.format(p.quantidade * p.custo_medio)}</td>
                 <td data-label="Qtd" class="${classeEstoque}">${p.quantidade} ${avisoEstoque}</td>
                 <td data-label="Última Mov.">${ultimaMovFormatada}</td>
                 <td data-label="Ações" class="acoes">
@@ -210,28 +213,87 @@ async function carregarDashboard() {
     const container = document.getElementById('dashboard-container');
     container.innerHTML = `<div class="loading-spinner"></div>`;
     try {
-        const { baixoEstoque, ultimasMovimentacoes } = await fetchAPI('dashboard/stats');
+        // Carrega os dados em paralelo
+        const [stats, valorPorSetor] = await Promise.all([
+            fetchAPI('dashboard/stats'),
+            fetchAPI('dashboard/valor-por-setor')
+        ]);
+        const { baixoEstoque, ultimasMovimentacoes } = stats;
 
         let baixoEstoqueHtml = `<div class="card"><h2><span class="material-icons-outlined">warning</span> Produtos com Baixo Estoque</h2>`;
         if (baixoEstoque.length > 0) {
             baixoEstoqueHtml += `<ul>${baixoEstoque.map(p => `<li>${p.nome} <strong>(${p.quantidade})</strong></li>`).join('')}</ul>`;
         } else { baixoEstoqueHtml += `<p>Nenhum produto com baixo estoque.</p>`; }
         baixoEstoqueHtml += `</div>`;
+        
+        // Card de Valor em Estoque por Setor
+        const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        const valorTotalEstoque = valorPorSetor.reduce((acc, item) => acc + parseFloat(item.valor_total), 0);
 
-        let ultimasMovHtml = `<div class="card">
-            <div class="header-tela" style="margin-bottom: 15px;">
-                <h2><span class="material-icons-outlined">sync_alt</span> Movimentações (Últimos 30 dias)</h2>
-                <button id="btn-exportar-grafico" class="btn btn-primario"><span class="material-icons-outlined">download</span>Exportar</button>
-            </div>`;
-        ultimasMovHtml += `<canvas id="grafico-movimentacoes"></canvas>`;
-        ultimasMovHtml += `</div>`;
+        let valorEstoqueHtml = `
+            <div class="card" style="grid-column: span 2; text-align: center;">
+                <h2><span class="material-icons-outlined">monetization_on</span> Valor Total em Estoque</h2>
+                <p class="valor-card" style="font-size: 2.5em; margin-top: 10px;">${formatadorMoeda.format(valorTotalEstoque)}</p>
+            </div>
+            <div class="card" style="grid-column: span 2;"><h2><span class="material-icons-outlined">inventory_2</span> Detalhes por Setor</h2>`;
 
-        container.innerHTML = baixoEstoqueHtml + ultimasMovHtml;
-
-        // Renderiza o gráfico após o HTML ser inserido no DOM
-        if (ultimasMovimentacoes.length > 0) {
-            renderizarGraficoMovimentacoes(ultimasMovimentacoes);
+        if (valorPorSetor.length > 0) {
+            valorEstoqueHtml += `<div class="grid-setores">`;
+            valorPorSetor.forEach(item => {
+                valorEstoqueHtml += `<div class="card-setor btn-visualizar-estoque" data-id="${item.setor_id}" data-nome="${item.setor_nome}">
+                    <span class="material-icons-outlined icone-setor">${item.icone || 'category'}</span>
+                    <h3>${item.setor_nome}</h3>
+                </div>`;
+            });
+            valorEstoqueHtml += `</div>`;
+        } else {
+            valorEstoqueHtml += `<p>Nenhum valor em estoque para exibir.</p>`;
         }
+        valorEstoqueHtml += `</div>`;
+
+        // Card de Setor que mais gastou
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        const mesAtual = dataAtual.getMonth() + 1;
+        let gastosSetorHtml = `<div class="card" id="card-gastos-setor" style="grid-column: span 2;">
+            <div class="header-tela" style="margin-bottom: 15px;">
+                <h2><span class="material-icons-outlined">shopping_cart</span> Gastos por Setor</h2>
+                <div style="display: flex; gap: 10px;">
+                    <select id="filtro-mes-gastos" class="form-control" style="padding: 5px;">${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === mesAtual ? 'selected' : ''}>${new Date(0, i).toLocaleString('pt-PT', {month: 'long'})}</option>`).join('')}</select>
+                    <select id="filtro-ano-gastos" class="form-control" style="padding: 5px;">${Array.from({length: 5}, (_, i) => `<option value="${anoAtual-i}" ${anoAtual-i === anoAtual ? 'selected' : ''}>${anoAtual-i}</option>`).join('')}</select>
+                </div>
+            </div>
+            <div id="tabela-gastos-setor"></div>
+        </div>`;
+
+        // Cards para últimas entradas e saídas
+        const renderizarTabelaMovimentacoes = (movs, titulo) => {
+            let html = `<div class="card"><h2><span class="material-icons-outlined">sync_alt</span> ${titulo}</h2>`;
+            if (movs.length > 0) {
+                html += `<table class="tabela-produtos"><thead><tr><th>Produto</th><th>Qtd</th><th>Data</th></tr></thead><tbody>`;
+                movs.slice(0, 5).forEach(m => { // Limita a 5 itens
+                    html += `<tr><td>${m.produto_nome}</td><td>${m.quantidade}</td><td>${new Date(m.data_movimento).toLocaleDateString('pt-PT')}</td></tr>`;
+                });
+                html += `</tbody></table>`;
+            } else {
+                html += `<p>Nenhuma movimentação recente.</p>`;
+            }
+            return html + `</div>`;
+        };
+
+        const ultimasEntradas = ultimasMovimentacoes.filter(m => m.tipo === 'entrada');
+        const ultimasSaidas = ultimasMovimentacoes.filter(m => m.tipo === 'saida');
+
+        const ultimasEntradasHtml = renderizarTabelaMovimentacoes(ultimasEntradas, 'Últimas Entradas');
+        const ultimasSaidasHtml = renderizarTabelaMovimentacoes(ultimasSaidas, 'Últimas Saídas');
+
+        container.innerHTML = baixoEstoqueHtml + gastosSetorHtml + ultimasEntradasHtml + ultimasSaidasHtml;
+
+        await carregarGraficoGastos(); // Carrega o gráfico de gastos inicial
+
+        // Adiciona listeners para os filtros de gastos
+        document.getElementById('filtro-mes-gastos').onchange = carregarGraficoGastos;
+        document.getElementById('filtro-ano-gastos').onchange = carregarGraficoGastos;
     } catch (err) { container.innerHTML = `<div class="card"><p style="color:var(--cor-erro)">${err.message}</p></div>`; }
 }
 
@@ -258,6 +320,36 @@ async function popularDatalist(endpoint, datalistId) {
         itens.forEach(item => datalist.innerHTML += `<option value="${item.nome}">`);
     } catch (err) {
         console.error(`Erro ao popular datalist ${datalistId}:`, err);
+    }
+}
+
+async function carregarGraficoGastos() {
+    const mes = document.getElementById('filtro-mes-gastos').value;
+    const ano = document.getElementById('filtro-ano-gastos').value;
+    const containerTabela = document.getElementById('tabela-gastos-setor');
+    containerTabela.innerHTML = `<div class="loading-spinner"></div>`;
+
+    // CORREÇÃO: Adicionado try/catch para tratar erros de API.
+    // Antes, qualquer falha aqui deixava o spinner travado sem mensagem ao utilizador.
+    try {
+        const gastosPorSetor = await fetchAPI(`dashboard/gastos-por-setor?ano=${ano}&mes=${mes}`);
+        
+        if (gastosPorSetor.length > 0) {
+            const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+            let cardsHTML = `<div class="grid-setores" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">`;
+            gastosPorSetor.forEach(item => {
+                cardsHTML += `<div class="card-dashboard" style="cursor: default;">
+                    <span class="material-icons-outlined icone-card">paid</span>
+                    <h4>${item.setor_nome}</h4>
+                    <p class="valor-card" style="color: var(--cor-erro);">${formatadorMoeda.format(item.total_gasto)}</p>
+                </div>`;
+            });
+            containerTabela.innerHTML = cardsHTML + `</div>`;
+        } else {
+            containerTabela.innerHTML = `<p>Nenhum gasto registrado para este período.</p>`;
+        }
+    } catch (err) {
+        containerTabela.innerHTML = `<p style="color:var(--cor-erro)">Erro ao carregar gastos: ${err.message}</p>`;
     }
 }
 
@@ -339,32 +431,9 @@ async function carregarSetoresParaFornecedores() {
     } catch (err) { container.innerHTML = `<p style="color:var(--cor-erro)">${err.message}</p>`; }
 }
 
-function renderizarGraficoMovimentacoes(movimentacoes) {
-    const ctx = document.getElementById('grafico-movimentacoes').getContext('2d');
-    const labels = [...new Set(movimentacoes.map(m => new Date(m.data_movimento).toLocaleDateString('pt-PT')))].reverse();
-    
-    const dataEntradas = labels.map(label => 
-        movimentacoes.filter(m => m.tipo === 'entrada' && new Date(m.data_movimento).toLocaleDateString('pt-PT') === label)
-                     .reduce((sum, m) => sum + m.quantidade, 0)
-    );
-
-    const dataSaidas = labels.map(label => 
-        movimentacoes.filter(m => m.tipo === 'saida' && new Date(m.data_movimento).toLocaleDateString('pt-PT') === label)
-                     .reduce((sum, m) => sum + m.quantidade, 0)
-    );
-
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { label: 'Entradas', data: dataEntradas, backgroundColor: 'rgba(25, 135, 84, 0.7)' },
-                { label: 'Saídas', data: dataSaidas, backgroundColor: 'rgba(220, 53, 69, 0.7)' }
-            ]
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-}
+// CORREÇÃO: A função renderizarGraficoMovimentacoes foi removida pois era código morto.
+// Ela referenciava um <canvas id="grafico-movimentacoes"> que não existe em nenhum template do HTML,
+// o que causaria um TypeError ao tentar chamar .getContext('2d') em null.
 
 async function carregarFornecedoresPorSetor(setorId, setorNome, page = 1, termo = '') {
     estadoAtual = { setorId, setorNome };
@@ -401,42 +470,7 @@ async function carregarFornecedoresPorSetor(setorId, setorNome, page = 1, termo 
         });
         renderizarPaginacao('paginacao-fornecedores', dadosPaginados, (newPage) => carregarFornecedoresPorSetor(setorId, setorNome, newPage, termo));
 
-        buscaInput.oninput = debounce((e) => {
-            carregarFornecedoresPorSetor(setorId, setorNome, 1, e.target.value);
-        });
     } catch (err) { container.innerHTML = `<p style="color:var(--cor-erro)">${err.message}</p>`; }
-}
-
-function renderizarFiltrosRelatorio() {
-    const container = document.getElementById('filtros-relatorio');
-    container.innerHTML = `
-        <h2>Gerar Relatório</h2>
-        <form id="form-gerar-relatorio">
-            <div class="form-group">
-                <label for="tipo-relatorio">Período</label>
-                <select id="tipo-relatorio">
-                    <option value="diario">Diário</option>
-                    <option value="semanal">Semanal</option>
-                    <option value="mensal">Mensal</option>
-                </select>
-            </div>
-            <div class="form-group" id="container-data-diaria">
-                <label for="data-diaria">Selecione o Dia</label>
-                <input type="date" id="data-diaria" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-            <div class="form-group" id="container-data-mensal" style="display:none;">
-                <label for="data-mensal">Selecione o Mês</label>
-                <input type="month" id="data-mensal" value="${new Date().toISOString().substring(0, 7)}">
-            </div>
-            <button type="submit" class="btn btn-primario">Gerar Relatório</button>
-        </form>
-    `;
-
-    document.getElementById('tipo-relatorio').addEventListener('change', (e) => {
-        document.getElementById('container-data-diaria').style.display = (e.target.value === 'diario' || e.target.value === 'semanal') ? 'block' : 'none';
-        document.getElementById('container-data-mensal').style.display = e.target.value === 'mensal' ? 'block' : 'none';
-        document.getElementById('data-diaria').labels[0].textContent = e.target.value === 'semanal' ? 'Selecione um dia da semana' : 'Selecione o Dia';
-    });
 }
 
 async function gerarRelatorio(e) {
@@ -670,6 +704,19 @@ mainContent.addEventListener('click', async (e) => {
     }
 });
 
+mainContent.addEventListener('input', debounce((e) => {
+    // Delegação de evento para o campo de busca de produtos
+    if (e.target.id === 'busca-produto') {
+        const { setorId, setorNome } = estadoAtual;
+        carregarProdutosPorSetor(setorId, setorNome, 1, e.target.value);
+    }
+    // Delegação de evento para o campo de busca de fornecedores
+    if (e.target.id === 'busca-fornecedor') {
+        const { setorId, setorNome } = estadoAtual;
+        carregarFornecedoresPorSetor(setorId, setorNome, 1, e.target.value);
+    }
+}, 300));
+
 mainContent.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -700,22 +747,26 @@ mainContent.addEventListener('submit', async (e) => {
                 }
                 break;
             }
-            case 'form-registrar-entrada':
-            case 'form-registrar-saida': {
-                const tipo = form.id.includes('entrada') ? 'entrada' : 'saida';
-                const nomeProduto = form.querySelector(`#${tipo}-produto-nome`).value;
+            case 'form-registrar-entrada': {
+                const nomeProduto = form.querySelector('#entrada-produto-nome').value;
                 const produto = listaDeProdutosCache.find(p => p.nome.toLowerCase() === nomeProduto.toLowerCase());
-                if (!produto) {
-                    throw new Error('Produto não encontrado. Verifique o nome digitado.');
-                }
-                const dados = {
-                    produto_id: produto.id,
-                    quantidade: parseInt(form.querySelector(`#${tipo}-quantidade`).value)
-                };
-                const resultado = await fetchAPI(`movimentacoes/${tipo}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+                if (!produto) throw new Error('Produto não encontrado.');
+                const dados = { produto_id: produto.id, quantidade: parseInt(form.querySelector('#entrada-quantidade').value), valor_unitario: parseFloat(form.querySelector('#entrada-valor-unitario').value) };
+                const resultado = await fetchAPI('movimentacoes/entrada', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
                 mostrarNotificacao(resultado.message);
                 form.reset();
-                await carregarHistoricoMovimentacoes(tipo);
+                await carregarHistoricoMovimentacoes('entrada');
+                break;
+            }
+            case 'form-registrar-saida': {
+                const nomeProduto = form.querySelector('#saida-produto-nome').value;
+                const produto = listaDeProdutosCache.find(p => p.nome.toLowerCase() === nomeProduto.toLowerCase());
+                if (!produto) throw new Error('Produto não encontrado.');
+                const dados = { produto_id: produto.id, quantidade: parseInt(form.querySelector('#saida-quantidade').value), destino: form.querySelector('#saida-destino').value };
+                const resultado = await fetchAPI('movimentacoes/saida', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+                mostrarNotificacao(resultado.message);
+                form.reset();
+                await carregarHistoricoMovimentacoes('saida');
                 break;
             }
             case 'form-gerar-relatorio':

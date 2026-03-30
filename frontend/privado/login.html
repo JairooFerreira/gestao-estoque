@@ -88,6 +88,11 @@
             transition: background-color 0.2s;
         }
 
+        .btn:disabled {
+            background-color: #5a6268;
+            cursor: not-allowed;
+        }
+
         .btn:hover {
             background-color: #0056b3;
         }
@@ -99,7 +104,7 @@
             padding: 10px;
             border-radius: 4px;
             text-align: center;
-            margin-top: 20px;
+            margin-top: 15px;
             display: none; /* Escondido por padrão */
         }
     </style>
@@ -112,15 +117,15 @@
             <form id="form-login">
                 <div class="form-group">
                     <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required>
+                    <input type="email" id="email" name="email" autocomplete="email" required>
                 </div>
                 <div class="form-group">
                     <label for="senha">Senha</label>
-                    <input type="password" id="senha" name="senha" required>
+                    <input type="password" id="senha" name="senha" autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="btn">Entrar</button>
             </form>
-            <div id="mensagem-erro"></div>
+            <div id="mensagem-erro" role="alert" aria-live="polite"></div>
         </div>
         
     </div>
@@ -128,17 +133,26 @@
     <script>
         const formLogin = document.getElementById('form-login');
         const mensagemErro = document.getElementById('mensagem-erro');
-        // Lógica para alternar entre ambiente local e de produção (Vercel)
+        const submitButton = formLogin.querySelector('button[type="submit"]');
+        // Lógica para alternar entre ambientes: local, Vercel e Render
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isVercel = window.location.hostname.includes('vercel.app');
         const URL_BACKEND = isLocal
-            ? `${window.location.protocol}//${window.location.hostname}:3000` // URL para desenvolvimento local
-            : '/api'; // Caminho relativo para produção (Vercel)
+            ? `${window.location.protocol}//${window.location.hostname}:3000`
+            : isVercel
+                ? '/api'
+                : `${window.location.protocol}//${window.location.hostname}`; // Render: mesma origem
 
         formLogin.addEventListener('submit', async (evento) => {
             evento.preventDefault(); // Impede o recarregamento da página
 
             // Esconde mensagens de erro anteriores
             mensagemErro.style.display = 'none';
+            mensagemErro.textContent = '';
+
+            // Desativa o botão para evitar múltiplos cliques
+            submitButton.disabled = true;
+            submitButton.textContent = 'Aguarde...';
 
             const email = evento.target.email.value;
             const senha = evento.target.senha.value;
@@ -174,6 +188,10 @@
                 mensagemErro.textContent = erro.message || 'Ocorreu um erro ao tentar fazer login.';
                 mensagemErro.style.display = 'block';
                 console.error('Erro de login:', erro);
+            } finally {
+                // Reativa o botão e restaura o texto original, independentemente do resultado
+                submitButton.disabled = false;
+                submitButton.textContent = 'Entrar';
             }
         });
     </script>
