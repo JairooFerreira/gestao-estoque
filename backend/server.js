@@ -30,9 +30,9 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 app.use('/uploads', express.static(uploadsDir));
 
 // --- Servir Frontend em Produção ---
-// Tenta primeiro a pasta copiada dinamicamente no Render, se não, usa a estrutura original
-let frontendPath = path.join(__dirname, 'frontend/privado');
+let frontendPath = path.join(__dirname, 'public', 'privado');
 if (!fs.existsSync(frontendPath)) {
+    // Tenta fallback original se public/privado nao existir
     frontendPath = path.join(__dirname, '../frontend/privado');
 }
 
