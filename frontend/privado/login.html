@@ -136,12 +136,12 @@
         const submitButton = formLogin.querySelector('button[type="submit"]');
         // Lógica para alternar entre ambientes: local, Vercel e Render
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isVercel = window.location.hostname.includes('vercel.app');
+        const isRender = window.location.hostname.includes('onrender.com');
         const URL_BACKEND = isLocal
             ? `${window.location.protocol}//${window.location.hostname}:3000`
-            : isVercel
-                ? '/api'
-                : `${window.location.protocol}//${window.location.hostname}`; // Render: mesma origem
+            : isRender
+                ? `${window.location.protocol}//${window.location.hostname}`
+                : '/api';
 
         formLogin.addEventListener('submit', async (evento) => {
             evento.preventDefault(); // Impede o recarregamento da página

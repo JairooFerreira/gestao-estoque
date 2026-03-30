@@ -2,17 +2,16 @@
 //  CONFIGURAÇÃO E ESTADO GLOBAL
 // ===================================================================
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isVercel = window.location.hostname.includes('vercel.app');
 const isRender = window.location.hostname.includes('onrender.com');
 
 // Local: aponta para porta 3000
-// Vercel: usa /api (roteado pelo vercel.json)
 // Render: usa a mesma origem sem prefixo (o Express serve tudo)
+// Padrão (Vercel e Domínios Costumizados): usa /api (roteado pelo vercel.json)
 const URL_BACKEND = isLocal
     ? `${window.location.protocol}//${window.location.hostname}:3000`
-    : isVercel
-        ? '/api'
-        : `${window.location.protocol}//${window.location.hostname}`; // Render: mesma origem
+    : isRender
+        ? `${window.location.protocol}//${window.location.hostname}`
+        : '/api';
 const token = localStorage.getItem('token');
 const mainContent = document.querySelector('.main-content');
 const modalContainer = document.getElementById('modal-container');
